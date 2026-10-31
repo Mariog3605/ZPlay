@@ -1,0 +1,82 @@
+name: Rebuild iOS IPA with TorrServerKit
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch dependencies and locate shim
+        shell: bash
+        run: |
+          set -euo pipefail
+          touch .env
+          flutter pub get
+          python3 - <<'PY'
+          import json, pathlib, urllib.parse, os
+          config = pathlib.Path('.dart_tool/package_config.json').resolve()
+          package = next(p for p in json.loads(config.read_text())['packages'] if p['name'] == 'torrserver_flutter')
+          uri = urllib.parse.urljoin(config.as_uri(), package['rootUri'])
+          root = pathlib.Path(urllib.parse.unquote(urllib.parse.urlparse(uri).path))
+          with open(os.environ['GITHUB_ENV'], 'a') as out:
+              out.write(f'TORR_PLUGIN={root}\n')
+          PY
+      - name: Rebuild TorrServerKit
+        shell: bash
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+        run: |
+          set -euo pipefail
+          npm install --global yarn@1.22.22
+          cd "$TORR_PLUGIN/tool/go-shim"
+          git clone https://github.com/YouROK/TorrServer.git torrserver-src
+          git -C torrserver-src checkout 8a69eadd28e6d243cea62ab6e37dbf55eb4eb77a
+          (cd torrserver-src && go run gen_web.go)
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('go.mod')
+          p.write_text(''.join(line for line in p.read_text().splitlines(True) if not ('golang.org/x/mobile ' in line and '// indirect' in line)))
+          PY
+          go mod tidy
+          MOBILE_VERSION=$(go list -m -f '{{.Version}}' golang.org/x/mobile)
+          go install "golang.org/x/mobile/cmd/gomobile@$MOBILE_VERSION"
+          go install "golang.org/x/mobile/cmd/gobind@$MOBILE_VERSION"
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          gomobile init
+          gomobile bind -target=ios/arm64 -iosversion=14.0 -tags=nosqlite -ldflags='-s -w -checklinkname=0' -trimpath -o "$TORR_PLUGIN/ios/TorrServerKit.xcframework" .
+          test -d "$TORR_PLUGIN/ios/TorrServerKit.xcframework"
+      - name: Build unsigned iOS app
+        run: flutter build ios --release --no-codesign --dart-define-from-file=.env --split-debug-info=build/symbols
+      - name: Package IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/ios/iphoneos/Runner.app/Runner
+          mkdir -p build/ios/iphoneos/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          (cd build/ios/iphoneos && zip -qry "$GITHUB_WORKSPACE/ZPlay-iOS.ipa" Payload)
+          unzip -tq ZPlay-iOS.ipa
+          shasum -a 256 ZPlay-iOS.ipa > ZPlay-iOS.ipa.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZPlay-iOS-unsigned
+          path: |
+            ZPlay-iOS.ipa
+            ZPlay-iOS.ipa.sha256
+          if-no-files-found: error
+          retention-days: 14
