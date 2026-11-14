@@ -2,6 +2,21 @@
 
 All notable changes to ZPlay will be documented in this file.
 
+## [1.6.23] - 2026-11-13
+
+- Television browsing behaves like Netflix. A card's details panel now waits until focus rests on it for about a second and disappears the instant you move on, and every up or down press lands the focused rail at the same height just under the bar, so the panel always opens downward instead of covering the row above. Up from the first rail reaches the hero and then the bar without dead presses.
+- Cleaner ten-foot cards and rails. Focused cards carry a white ring and no play disc; rail headers show only their title; and catalogs that two rails would both call "Popular" read "Popular Movies" and "Popular Series" on Home.
+- Working streams rise to the top. The Watch Sources list quietly test-opens direct web sources in the background and re-ranks as answers arrive: verified sources first (marked Ready), unresponsive ones last. On a television, focus moves once to the first verified source if you have not moved yet. Debrid links are never probed, so nothing is added to your Debrid account.
+
+## [1.6.22] - 2026-11-10
+
+- Home carries the brand again on a phone. The move to the shell's top bar put the ZPlay mark in the leading corner on tablet, desktop and television, but a phone gets the shell's bottom bar, which has no leading corner — so the mark disappeared from the one screen it had always been on. Home's own control row draws it again on the compact form factor, and the row's height is now reserved there whether or not either page action is switched on.
+- The catalogue was reimplemented once instead of several times. Three card poster frames, four scroll rails, two waveform seekbars, three live-channel rows, four settings scaffolds and four filter controls are one implementation each; the scraper sites share one HTTP client and user agent; the debrid providers sit behind one interface. `lib/` is 6,663 lines and one file lighter, and ten files nothing imported are gone.
+- The browsing UI was rebuilt against the identity charter. Routes cross-fade instead of playing a circular reveal from the tap point; the hero is its own widget with a skippable first-launch intro; poster tiles carry rating, year and type on one line; the palette presets now only change the accent, so backgrounds cannot drift; and Home was pinned against overflow on phone, tablet, desktop and television.
+- A stalled stream offers to find a working source. When playback stops progressing, the overlay names the provider it was using and probes the other sources in rank order — four at a time, eight seconds each, twenty-five seconds total — and opens the first that answers, at the current position. Torrent sources are never probed and are only opened as a last resort.
+- Dead artwork falls back instead of painting an exception. A logo or backdrop URL that 404s used to render Flutter's debug error box across the player; every such image now has an explicit fallback (the title text, a spinner, or the surface beneath it), and the details poster leaves a neutral placeholder.
+- Reduced-motion users get the same routes without the visible motion.
+
 ## [1.6.18] - 2026-10-26
 
 - Remote stream handoff is now explicit. Addon sources keep only media-request headers; credentials, cookies, proxy authorization and unrecognized headers are dropped, and raw `behaviorHints` header maps are removed. External links are limited to HTTP, HTTPS and Stremio.
