@@ -13,6 +13,7 @@ import '../../pages/home/home_chrome_metrics.dart';
 import '../../services/hero/hero_media_resolver.dart';
 import '../../services/home/home_page_settings.dart';
 import '../../services/layout/form_factor.dart';
+import '../../services/layout/surface_budget.dart';
 import '../../services/metadata/art_quality.dart';
 import '../../services/metadata/metadata_service.dart';
 import '../../services/metadata/metahub_art.dart';
@@ -22,6 +23,7 @@ import '../../services/theme/app_theme_service.dart';
 import '../../services/theme/design_tokens.dart';
 import '../../shell/app_shell_scope.dart';
 import '../../utils/navigation/route_transitions.dart';
+import '../common/baked_gradient.dart';
 import '../common/focusable_card.dart';
 import '../common/hero_meta_line.dart';
 import '../common/pill_button.dart';
@@ -92,7 +94,7 @@ List<String> heroWideArtworkCandidates(
     final upgraded =
         ArtQuality.upgrade(
           trimmed,
-          kind: backdrop ? ArtKind.backdrop : ArtKind.poster,
+          kind: backdrop ? ArtKind.heroBackdrop : ArtKind.poster,
         ) ??
         trimmed;
     if (!candidates.contains(upgraded)) candidates.add(upgraded);
@@ -169,6 +171,22 @@ class HeroArtwork extends StatefulWidget {
   /// blurred band keeps its own tiny decode of the same URL through the same
   /// manager, so the disk download is still shared — see [AppImageCache].
   static const heroCacheWidth = 1920;
+
+  /// The decode width for the window [context] is drawn into: the band's own
+  /// physical width, between 1280 and 3840 px.
+  ///
+  /// [heroCacheWidth] was a fixed 1920, which is right for the 960 dp
+  /// television canvas and soft everywhere larger: a maximized window on a 4K
+  /// monitor at 2x is 5120 px wide, and a 1920 px decode was stretched 2.7x -
+  /// the "blurry slider". The source can carry it (metahub's `large` still is
+  /// 3840 px, TMDb is asked for `original`), so the decode follows the window.
+  /// Capped at 3840: past that the sources have nothing more to give.
+  static int cacheWidthFor(BuildContext context) {
+    final width =
+        MediaQuery.sizeOf(context).width *
+        MediaQuery.devicePixelRatioOf(context);
+    return width.round().clamp(1280, 3840);
+  }
 
   HeroArtwork({
     super.key,
@@ -262,7 +280,7 @@ class _HeroArtworkState extends State<HeroArtwork> {
     return CachedNetworkImage(
       imageUrl: active,
       cacheManager: widget.cacheManager,
-      memCacheWidth: HeroArtwork.heroCacheWidth,
+      memCacheWidth: HeroArtwork.cacheWidthFor(context),
       fit: BoxFit.cover,
       alignment: Alignment.topCenter,
       filterQuality: FilterQuality.medium,
@@ -826,6 +844,22 @@ class _HeroBannerState extends State<HeroBanner> {
     }
     // Immersive, the default.
     //
+    // Desktop and tablet: the hero is the first screen. It fills the window
+    // down to a peek of the next rail - its title and a sliver of posters - the
+    // way the streaming UIs this app is measured against open. The rail is
+    // still on the first screen; it just no longer competes with the hero.
+    // A television keeps the budget below, which was tuned so a whole rail
+    // fits on its 540 dp canvas.
+    final pointer = switch (FormFactorService.of(context)) {
+      FormFactor.medium || FormFactor.expanded => true,
+      _ => false,
+    };
+    if (pointer && screenHeight >= 600) {
+      const railPeek = 120.0;
+      final tall = screenHeight - chromeAbove - railPeek;
+      return tall.clamp(contentMinimum, screenHeight * 0.86);
+    }
+
     // Capped at 78% of the window: a desktop hero is a canvas, not the page,
     // and the rails must start on the first screen.
     final double desktopCap = screenHeight * 0.78;
@@ -1265,7 +1299,10 @@ class _HeroSlideState extends State<HeroSlide>
     // `_HeroBannerState._reducedMotion`).
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    if (reduceMotion) {
+    // A large surface parks it too: the drift repaints the band every frame
+    // for the whole slide, and above the surface budget that is frames the
+    // window cannot spare (see [SurfaceBudget]).
+    if (reduceMotion || !SurfaceBudget.allowsAmbientMotion(context)) {
       _kenBurns.stop();
       return;
     }
@@ -1463,19 +1500,20 @@ class _HeroSlideState extends State<HeroSlide>
               final band = math.max(0.0, extent - bleedTop);
               double stop(double inBand) =>
                   extent <= 0 ? inBand : (bleedTop + band * inBand) / extent;
-              return DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: [0.0, stop(0.12), stop(0.42), 1.0],
-                    colors: [
-                      tokens.bg.withValues(alpha: 0.55),
-                      tokens.bg.withValues(alpha: 0.0),
-                      tokens.bg.withValues(alpha: 0.55),
-                      tokens.bg,
-                    ],
-                  ),
+              // Baked, not a live gradient shader - see [BakedGradient]:
+              // a full-band gradient froze scrolling on large Linux windows.
+              return BakedGradient(
+                axis: Axis.vertical,
+                gradient: LinearGradient(
+                  stops: [0.0, stop(0.12), stop(0.42), 1.0],
+                  colors: [
+                    tokens.bg.withValues(alpha: 0.55),
+                    tokens.bg.withValues(alpha: 0.0),
+                    tokens.bg.withValues(alpha: 0.55),
+                    // Ends where Home's backdrop band starts (0.90), so the
+                    // hero dissolves into the page without a step.
+                    tokens.bg.withValues(alpha: 0.90),
+                  ],
                 ),
               );
             },
@@ -1486,19 +1524,16 @@ class _HeroSlideState extends State<HeroSlide>
           left: 0,
           right: 0,
           bottom: 0,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                stops: const [0.0, 0.42, 0.72, 1.0],
-                colors: [
-                  tokens.bg.withValues(alpha: 0.72),
-                  tokens.bg.withValues(alpha: 0.38),
-                  tokens.bg.withValues(alpha: 0.0),
-                  tokens.bg.withValues(alpha: 0.0),
-                ],
-              ),
+          child: BakedGradient(
+            axis: Axis.horizontal,
+            gradient: LinearGradient(
+              stops: const [0.0, 0.42, 0.72, 1.0],
+              colors: [
+                tokens.bg.withValues(alpha: 0.72),
+                tokens.bg.withValues(alpha: 0.38),
+                tokens.bg.withValues(alpha: 0.0),
+                tokens.bg.withValues(alpha: 0.0),
+              ],
             ),
           ),
         ),
@@ -1674,7 +1709,9 @@ class _HeroSlideState extends State<HeroSlide>
                                   // node explicitly rather than trusting which
                                   // autofocus won, so the test exercises the path a
                                   // user is actually on.
-                                  autofocus: true,
+                                  // Television only: on a pointer device the
+                                  // ring on a button nobody chose is noise.
+                                  autofocus: FormFactorService.hasRemoteInput,
                                   label: 'Play',
                                   icon: Icons.play_arrow_rounded,
                                   onPressed: () => _openDetails(context),

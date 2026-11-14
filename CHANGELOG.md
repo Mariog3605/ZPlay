@@ -2,6 +2,23 @@
 
 All notable changes to ZPlay will be documented in this file.
 
+## [1.6.25] - 2026-11-14
+
+- A cleaner, more polished desktop. The navigation is one floating capsule in the top-right corner - destinations, then search, the AI quiz, the calendar, fullscreen and settings - instead of a full-width bar. Rails show just their title, posters sit close together with clean art and a quiet "★ 7.2 · 2026 · Movie" line beneath, buttons are crisp rectangles, and the hero fills the first screen.
+- Browse reads like a storefront: a large "Movies" heading, then one row with the type and genre filters on the left and "Sort by" on the right. The header scrolls away with the page instead of floating over the posters.
+- Top 10 and fresh-content tags. Home opens with a ranked Top 10 Movies rail, and cards carry "New season", "New episode" or "New release" when the catalog's own dates say so - sparingly, so the tag still means something.
+- Television fixes. Grid pages (Browse, See All, My List) answer focus with the ring alone instead of a squeezed details panel, and a Continue Watching card's options - view details, remove - open by holding OK or pressing the remote's Menu key.
+- Sharper hero artwork. The hero is decoded at the window's real width from full-size images, so a large or 4K window is no longer drawn from a stretched 1920 px picture. Television thumbnails no longer download 4K stills they cannot show.
+- Smoother on very large windows. On big surfaces (a maximized window on a 4K monitor) the always-on decoration - the ambient glow and the hero's slow zoom - holds still, so the app stops redrawing while idle.
+- The "source isn't responding" dialog now matches the rest of the app.
+- Windows installs go to their own ZPlay folder. The installer had inherited PlayTorrio's identity, so it reused PlayTorrio's folder and its Apps & features entry; ZPlay now registers as itself and removes a ZPlay left under the old identity (never a real PlayTorrio install).
+- The red ZPlay mark everywhere: iOS icons, the Android TV launcher banner, the Android launch screen (dark, no more white flash), the Linux window icon, and the in-app logo on every colour palette.
+
+## [1.6.24] - 2026-11-14
+
+- Maximizing on Linux no longer freezes the app. On a large monitor with fractional scaling a maximized window is a ~14-megapixel surface, and two things there outran the renderer: the animated ambient background, which repainted the whole window every frame, and the full-screen gradient scrims behind the hero, the details page and Watch Sources, which made the first scrolled frame take seconds and gigabytes of memory. The ambient lights now hold still on large windows (they drift over twelve seconds, so the look is the same), and the scrims are drawn from a pre-rendered gradient that costs the same at any size. Scrolling a maximized 4K window stays smooth with memory flat.
+- Browse and the other grids no longer pop a details panel on a television. A grid cell is too narrow for one: the panel was squeezed to poster width and ran off the bottom of the page. Grid cells now answer focus with the ring alone, as Netflix's TV grids do, and their caption already shows the title and facts; rail cards on Home keep the panel.
+
 ## [1.6.23] - 2026-11-13
 
 - Television browsing behaves like Netflix. A card's details panel now waits until focus rests on it for about a second and disappears the instant you move on, and every up or down press lands the focused rail at the same height just under the bar, so the panel always opens downward instead of covering the row above. Up from the first rail reaches the hero and then the bar without dead presses.

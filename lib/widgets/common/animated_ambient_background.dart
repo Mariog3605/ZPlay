@@ -7,6 +7,7 @@ import '../../services/theme/app_theme_service.dart';
 import '../../services/theme/custom_background_service.dart';
 import '../../services/theme/design_tokens.dart';
 import '../../services/home/home_page_settings.dart';
+import '../../services/layout/surface_budget.dart';
 import '../../services/storage/app_image_cache.dart';
 
 /// GPU-accelerated animated ambient background with moving soft-faded
@@ -31,11 +32,24 @@ class _AnimatedAmbientBackgroundState extends State<AnimatedAmbientBackground>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
-    )..repeat();
+    );
 
     HomePageSettings.changeNotifier.addListener(_onSettingsChanged);
     AppThemeService.currentPalette.addListener(_onSettingsChanged);
     CustomBackgroundService.notifier.addListener(_onSettingsChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Above the surface budget the lights hold a still frame - they drift over
+    // twelve seconds, so the still frame is the same look. See [SurfaceBudget].
+    final animate = SurfaceBudget.allowsAmbientMotion(context);
+    if (animate && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!animate && _controller.isAnimating) {
+      _controller.stop();
+    }
   }
 
   void _onSettingsChanged() {
