@@ -1,0 +1,65 @@
+name: ZPlay tvOS experimental build
+on:
+  push:
+    branches: [tvos-beta]
+    paths:
+      - '.github/workflows/tvos-beta.yml'
+      - 'lib/**'
+      - 'tvos/**'
+      - 'pubspec.yaml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tvos:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      TVOS_ENGINE_SKIP_SIGNING: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up tvOS SDK
+        run: |
+          xcodebuild -version
+          if ! xcrun --sdk appletvos --show-sdk-path; then
+            xcodebuild -downloadPlatform tvOS
+          fi
+      - name: Install pinned Flutter tvOS toolchain
+        run: |
+          git clone --depth 1 --branch v3.47.3-tvos.1.10.2 https://github.com/fluttertv/flutter-tvos.git "$RUNNER_TEMP/flutter-tvos"
+          echo "$RUNNER_TEMP/flutter-tvos/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter-tvos/bin/flutter-tvos" precache
+      - name: Scaffold native tvOS target
+        run: |
+          if [ ! -d tvos ]; then
+            flutter-tvos create --project-name zplay --org com.zplay "$RUNNER_TEMP/zplay_scaffold"
+            cp -R "$RUNNER_TEMP/zplay_scaffold/tvos" .
+          fi
+          touch .env
+      - name: Resolve supported platform plugins
+        run: |
+          flutter-tvos pub add shared_preferences_tvos path_provider_tvos flutter_secure_storage_tvos url_launcher_tvos
+          flutter-tvos pub get
+      - name: Compile actual ZPlay source for Apple TV
+        run: flutter-tvos build tvos --release --no-codesign --no-tree-shake-icons --dart-define-from-file=.env
+      - name: Verify and package unsigned tvOS IPA
+        run: |
+          set -euo pipefail
+          app="$(find build/tvos -type d -path '*/Release-appletvos/Runner.app' -print -quit)"
+          test -n "$app"
+          test -f "$app/Runner"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleSupportedPlatforms:0' "$app/Info.plist" | grep -Fx AppleTVOS
+          xcrun vtool -show-build "$app/Runner"
+          mkdir -p "$RUNNER_TEMP/tvos-package/Payload"
+          cp -R "$app" "$RUNNER_TEMP/tvos-package/Payload/"
+          (cd "$RUNNER_TEMP/tvos-package" && zip -qry "$GITHUB_WORKSPACE/ZPlay-tvOS-experimental.ipa" Payload)
+          unzip -tq ZPlay-tvOS-experimental.ipa
+          shasum -a 256 ZPlay-tvOS-experimental.ipa > ZPlay-tvOS-experimental.ipa.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZPlay-tvOS-experimental-unsigned
+          path: |
+            ZPlay-tvOS-experimental.ipa
+            ZPlay-tvOS-experimental.ipa.sha256
+          if-no-files-found: error
+          retention-days: 14
