@@ -57,6 +57,11 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final isTvOS = Platform.operatingSystem == 'tvos';
+  if (isTvOS) {
+    await _startTvOS();
+    return;
+  }
   MediaKit.ensureInitialized();
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     await windowManager.ensureInitialized();
@@ -113,6 +118,58 @@ void main() async {
       (_) => CrashBreadcrumbs.memory('startup.warm'),
     ),
   );
+}
+
+/// Apple TV requires a visible first frame even if a mobile-only plugin fails.
+Future<void> _startTvOS() async {
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: Scaffold(
+      backgroundColor: Color(0xFF10131A),
+      body: Center(child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('ZPlay for Apple TV', style: TextStyle(color: Colors.white, fontSize: 40)),
+          SizedBox(height: 24),
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Starting experimental tvOS build…', style: TextStyle(color: Colors.white70)),
+        ],
+      )),
+    ),
+  ));
+  await WidgetsBinding.instance.endOfFrame;
+
+  Future<void> optional(String label, FutureOr<void> Function() action) async {
+    try {
+      await Future<void>.sync(action).timeout(const Duration(seconds: 8));
+    } catch (error) {
+      debugPrint('[tvOS startup] $label: $error');
+    }
+  }
+
+  // media_kit has no bundled tvOS native playback library in this build.
+  // Do not load the iOS library and abort before runApp.
+  DeviceProfile.debugSetTelevision(value: true);
+  await optional('Environment', EnvService.initialize);
+  await Future.wait([
+    optional('Player settings', PlayerSettings.initialize),
+    optional('Locale', LocaleSettings.initialize),
+    optional('Theme', AppThemeService.initialize),
+    optional('Home', HomePageSettings.initialize),
+    optional('My list', MyListService.initialize),
+    optional('Continue watching', ContinueWatchingService.initialize),
+    optional('Background', CustomBackgroundService.initialize),
+    optional('Glass', GlassSettings.initialize),
+    optional('Content', ContentSettings.initialize),
+    optional('Collections', CollectionsService.initialize),
+    optional('Renderer', RendererBackendSettings.initialize),
+  ]);
+  runApp(const ZPlayApp());
+  unawaited(optional('Crash diagnostics', CrashBreadcrumbs.initialize));
+  unawaited(optional('Add-ons', AddonManager.instance.initialize));
+  unawaited(optional('Catalog settings', BuiltinProvidersSettingsService.instance.init));
+  unawaited(optional('Metadata', TmdbService.initialize));
 }
 
 /// Service warm-up that the UI can render without: catalogs, downloads, the
@@ -193,7 +250,7 @@ class _ZPlayAppState extends State<ZPlayApp> with WidgetsBindingObserver {
         FocusHighlightStrategy.alwaysTraditional;
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_hasCheckedInitialUpdate) {
+      if (Platform.operatingSystem != 'tvos' && !_hasCheckedInitialUpdate) {
         _hasCheckedInitialUpdate = true;
         Future.delayed(const Duration(milliseconds: 1500), () {
           if (mounted) _checkForUpdates();
