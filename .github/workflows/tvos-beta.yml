@@ -50,6 +50,12 @@ jobs:
           flutter-tvos pub get
       - name: Compile actual ZPlay source for Apple TV
         run: flutter-tvos build tvos --release --no-codesign --no-tree-shake-icons --dart-define-from-file=.env
+      - name: Diagnose native dependency resolution on failure
+        if: failure()
+        run: |
+          if [ -f tvos/Podfile ]; then
+            (cd tvos && pod install --verbose) || true
+          fi
       - name: Verify and package unsigned tvOS IPA
         run: |
           set -euo pipefail

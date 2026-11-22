@@ -55,6 +55,7 @@ test -d "$plugin/tvos/TorrServerKit.xcframework"
 
 cd "$root"
 cp tool/tvos/torrserver_flutter.podspec "$plugin/tvos/"
+cp tool/tvos/Package.swift "$plugin/tvos/"
 # Restrict ATS relaxation to local networking, not arbitrary remote HTTP.
 /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' tvos/Runner/Info.plist 2>/dev/null || true
 /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true' tvos/Runner/Info.plist 2>/dev/null || \
