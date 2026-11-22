@@ -363,6 +363,7 @@ class HeroBanner extends StatefulWidget {
   /// canvas. Set on a television, where a 540 dp screen cannot afford a hero that
   /// is 43% of it and a usable row of posters at the same time.
   final bool compact;
+  final bool cinematicTv;
 
   const HeroBanner({
     super.key,
@@ -370,6 +371,7 @@ class HeroBanner extends StatefulWidget {
     this.onHeightChanged,
     this.onBackdropChanged,
     this.compact = false,
+    this.cinematicTv = false,
   });
 
   @override
@@ -1033,7 +1035,9 @@ class _HeroBannerState extends State<HeroBanner> {
     // room than 236 dp - but the band is sized by what it must leave for the
     // first rail, and the rail's own reserve is computed against this exact
     // number. See `_heroCompactHeight`.
-    final heroHeight = widget.compact
+    final heroHeight = widget.cinematicTv
+        ? math.max(340.0, screenHeight * 0.64)
+        : widget.compact
         ? _heroCompactHeight
         : _heroHeight(screenWidth, screenHeight);
     final tokens = context.tokens;
@@ -1138,6 +1142,7 @@ class _HeroBannerState extends State<HeroBanner> {
                     // row always stays - a mouse user never focuses the rail,
                     // and a hero with no actions reads as broken.
                     actionsYielded:
+                        !widget.cinematicTv &&
                         FormFactorService.hasRemoteInput && !_isFocused,
                     // Only the slide on screen gets the hover. A pointer over
                     // the neighbouring slide's off-screen half must not start

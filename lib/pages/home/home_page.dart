@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -1077,6 +1079,7 @@ class _HomePageState extends State<HomePage> {
     // arithmetic drift apart, which is how the posters came to be 37% smaller
     // than the design intended.
     final television = homeIsTelevision(context);
+    final appleTv = !kIsWeb && Platform.operatingSystem == 'tvos';
 
     // The page's control row is a `Positioned` overlay, so the space it occupies
     // has to be the scroll view's *top padding* - not a spacer widget at the head
@@ -1128,7 +1131,8 @@ class _HomePageState extends State<HomePage> {
         HeroBanner(
           key: _heroKey,
           movies: featured,
-          compact: true,
+          compact: !appleTv,
+          cinematicTv: appleTv,
           onHeightChanged: (height) {
             if (mounted && height != _heroBandHeight) {
               setState(() => _heroBandHeight = height);
@@ -1184,7 +1188,7 @@ class _HomePageState extends State<HomePage> {
             movies: top.movies.take(10).toList(),
           ),
           ranked: true,
-          artwork: FormFactorService.of(context) == FormFactor.television
+          artwork: television && !appleTv
               ? CardArtwork.landscape
               : CardArtwork.poster,
           maxHeight: _railHeightFor(context),
@@ -1202,7 +1206,7 @@ class _HomePageState extends State<HomePage> {
               // On desktop and mobile the viewer scans a rail with a mouse or
               // thumb, so removing the poster's text block removed the only
               // way to tell one title from another without opening it.
-              artwork: FormFactorService.of(context) == FormFactor.television
+              artwork: television && !appleTv
                   ? CardArtwork.landscape
                   : CardArtwork.poster,
               showCalendarButton:
@@ -1229,8 +1233,7 @@ class _HomePageState extends State<HomePage> {
       SizedBox(height: ZplaySpacing.s24 + MediaQuery.paddingOf(context).bottom),
     ];
 
-    final backgroundContent = AnimatedAmbientBackground(
-      child: Stack(
+    final homeContent = Stack(
         children: [
           // ── Hero backdrop band ──
           //
@@ -1239,7 +1242,8 @@ class _HomePageState extends State<HomePage> {
           // overlay painted above this whole stack (see `_buildBody`), so a band
           // drawn in here cannot bleed through it. See `_HeroBackdropBand` for
           // why that ordering is load-bearing rather than incidental.
-          _HeroBackdropBand(url: _heroBackdropUrl, chromeTop: appBarInset),
+          if (!appleTv)
+            _HeroBackdropBand(url: _heroBackdropUrl, chromeTop: appBarInset),
           // ── Main scrollable content ──
           // The skeleton tracks the *unfiltered* load, not the visible
           // sections.
@@ -1296,8 +1300,10 @@ class _HomePageState extends State<HomePage> {
           // below it get their full 260 dp poster because nothing is displacing
           // them.
         ],
-      ),
     );
+    final backgroundContent = appleTv
+        ? ColoredBox(color: tokens.bg, child: homeContent)
+        : AnimatedAmbientBackground(child: homeContent);
 
     // The shell's bar hands DOWN into this page's own top row through the handle
     // published here. Deferred one frame because the row it names is built by
