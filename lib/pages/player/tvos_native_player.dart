@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
+import '../../services/stream/torrent_stream_service.dart';
+import '../../services/p2p/p2p_settings_service.dart';
 import '../../widgets/player/player_top_bar.dart';
 import '../../widgets/player/player_transport.dart';
 
-/// Experimental AVFoundation playback for direct, authorized HTTPS media.
+/// Experimental AVFoundation playback for authorized HTTPS and local P2P media.
 /// Unsupported formats and missing native plugins show a recoverable error.
 class TvOSNativePlayer extends StatefulWidget {
   const TvOSNativePlayer({
@@ -16,6 +18,10 @@ class TvOSNativePlayer extends StatefulWidget {
     this.initialPosition,
     this.subtitle,
     this.sourceLabel,
+    this.torrentHash,
+    this.torrentFileIndex,
+    this.season,
+    this.episode,
   });
 
   final String title;
@@ -23,6 +29,10 @@ class TvOSNativePlayer extends StatefulWidget {
   final Duration? initialPosition;
   final String? subtitle;
   final String? sourceLabel;
+  final String? torrentHash;
+  final int? torrentFileIndex;
+  final int? season;
+  final int? episode;
 
   @override
   State<TvOSNativePlayer> createState() => _TvOSNativePlayerState();
@@ -32,6 +42,7 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
   VideoPlayerController? _controller;
   String? _error;
   bool _ready = false;
+  String? _activeTorrent;
   bool _controlsVisible = true;
   bool _menuOpen = false;
   bool _scrubbing = false;
@@ -50,14 +61,32 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
   }
 
   Future<void> _open() async {
-    final uri = Uri.tryParse(widget.url ?? '');
-    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
-      setState(() => _error =
-          'This source is not supported by the Apple TV beta. '
-          'Only direct HTTPS media is supported; torrent playback is unavailable.');
-      return;
-    }
     try {
+      var uri = Uri.tryParse(widget.url ?? '');
+      final magnet = uri?.scheme == 'magnet' ? widget.url : widget.torrentHash;
+      if (magnet != null && magnet.isNotEmpty) {
+        if (!P2pSettingsService.isP2pEnabled.value) {
+          setState(() => _error = 'P2P playback is disabled in Settings.');
+          return;
+        }
+        _activeTorrent = magnet;
+        final stream = await TorrentStreamService().streamTorrent(
+          magnet, season: widget.season, episode: widget.episode,
+          fileIdx: widget.torrentFileIndex,
+        );
+        if (!mounted) {
+          await TorrentStreamService().removeTorrent(magnet);
+          return;
+        }
+        uri = Uri.tryParse(stream ?? '');
+        if (uri == null || uri.scheme != 'http' || uri.host != '127.0.0.1') {
+          setState(() => _error = 'Unable to prepare the torrent stream.');
+          return;
+        }
+      } else if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+        setState(() => _error = 'Unsupported media URL.');
+        return;
+      }
       final controller = VideoPlayerController.networkUrl(uri);
       _controller = controller;
       controller.addListener(_onPlayerChanged);
@@ -104,6 +133,8 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
     final controller = _controller;
     controller?.removeListener(_onPlayerChanged);
     if (controller != null) unawaited(controller.dispose());
+    final torrent = _activeTorrent;
+    if (torrent != null) unawaited(TorrentStreamService().removeTorrent(torrent));
     super.dispose();
   }
 

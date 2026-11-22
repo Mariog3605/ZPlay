@@ -7,6 +7,7 @@ on:
       - 'lib/**'
       - 'tvos/**'
       - 'pubspec.yaml'
+      - 'tool/tvos/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -36,6 +37,8 @@ jobs:
             cp -R "$RUNNER_TEMP/zplay_scaffold/tvos" .
           fi
           touch .env
+      - name: Build embedded tvOS torrent engine
+        run: bash tool/tvos/prepare-torrserver.sh
       - name: Resolve supported platform plugins
         run: |
           flutter-tvos pub add shared_preferences_tvos path_provider_tvos flutter_secure_storage_tvos url_launcher_tvos video_player_tvos

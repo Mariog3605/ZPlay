@@ -118,7 +118,11 @@ class _TvOSPlayerScreenState extends State<PlayerScreen> {
     title: widget.detail?.name ?? widget.title,
     subtitle: widget.detail?.year,
     sourceLabel: widget.source.providerLabel,
-    url: widget.source.isMagnet ? null : widget.source.url,
+    url: widget.source.url,
+    torrentHash: widget.source.infoHash,
+    torrentFileIndex: widget.source.fileIdx,
+    season: widget.episode?.season,
+    episode: widget.episode?.episode,
     initialPosition: widget.initialPosition,
   );
 }
