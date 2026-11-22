@@ -13,6 +13,7 @@ class PlayerVolumeControl extends StatefulWidget {
   final bool isMuted;
   final ValueChanged<double> onVolumeChanged;
   final VoidCallback onToggleMute;
+  final bool allowBoost;
 
   static const double maxVolume = 2.50;
 
@@ -22,6 +23,7 @@ class PlayerVolumeControl extends StatefulWidget {
     required this.isMuted,
     required this.onVolumeChanged,
     required this.onToggleMute,
+    this.allowBoost = true,
   });
 
   @override
@@ -64,7 +66,7 @@ class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
   void _stepBy(double delta) {
     final next = (widget.volume + delta).clamp(
       0.0,
-      PlayerVolumeControl.maxVolume,
+      widget.allowBoost ? PlayerVolumeControl.maxVolume : 1.0,
     );
     widget.onVolumeChanged((next * 100).round() / 100.0);
   }
@@ -72,7 +74,7 @@ class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
   /// The spoken value of the track, rounded the way the on-screen percentage
   /// is.
   String _volumeValue(double volume, AppLocalizations l10n) {
-    final pct = (volume.clamp(0.0, PlayerVolumeControl.maxVolume) * 100)
+    final pct = (volume.clamp(0.0, widget.allowBoost ? PlayerVolumeControl.maxVolume : 1.0) * 100)
         .round();
     return l10n.playerVolume(pct);
   }
@@ -99,7 +101,9 @@ class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
   void _updateFromPosition(double localX) {
     final fraction = (localX / _trackWidth).clamp(0.0, 1.0);
     double newVol;
-    if (fraction <= 0.55) {
+    if (!widget.allowBoost) {
+      newVol = fraction.toDouble();
+    } else if (fraction <= 0.55) {
       newVol = (fraction / 0.55) * 1.0;
     } else {
       newVol = 1.0 + ((fraction - 0.55) / 0.45) * 1.50;
@@ -109,6 +113,7 @@ class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
 
   double _getFractionFromVolume(double v) {
     if (widget.isMuted) return 0.0;
+    if (!widget.allowBoost) return v.clamp(0.0, 1.0).toDouble();
     if (v <= 1.0) {
       return (v * 0.55).clamp(0.0, 0.55);
     }
@@ -131,7 +136,7 @@ class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
           final delta = pointerSignal.scrollDelta.dy < 0 ? 0.05 : -0.05;
           final next = (widget.volume + delta).clamp(
             0.0,
-            PlayerVolumeControl.maxVolume,
+            widget.allowBoost ? PlayerVolumeControl.maxVolume : 1.0,
           );
           widget.onVolumeChanged((next * 100).round() / 100.0);
         }
@@ -228,7 +233,7 @@ class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
                           ),
 
                           // 100% Threshold Notch Line
-                          Positioned(
+                          if (widget.allowBoost) Positioned(
                             left: _trackWidth * 0.55 - 0.75,
                             child: Container(
                               width: 1.5,

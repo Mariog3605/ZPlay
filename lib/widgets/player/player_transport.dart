@@ -32,6 +32,9 @@ class PlayerTransport extends StatelessWidget {
   final bool isFullscreen;
   final bool hasPrevEpisode;
   final bool hasNextEpisode;
+  final bool showAudioSubtitleControls;
+  final bool showFullscreenControl;
+  final bool allowVolumeBoost;
 
   /// The node the player hands focus to when the HUD opens, attached to the
   /// play/pause button so an open HUD lands on a control a remote can act on.
@@ -72,6 +75,9 @@ class PlayerTransport extends StatelessWidget {
     required this.isFullscreen,
     this.hasPrevEpisode = false,
     this.hasNextEpisode = false,
+    this.showAudioSubtitleControls = true,
+    this.showFullscreenControl = true,
+    this.allowVolumeBoost = true,
     this.entryFocusNode,
     required this.onPlayPause,
     required this.onSeek,
@@ -185,6 +191,7 @@ class PlayerTransport extends StatelessWidget {
                   if (!isCompact) ...[
                     const SizedBox(width: 10),
                     PlayerVolumeControl(
+                      allowBoost: allowVolumeBoost,
                       volume: volume,
                       isMuted: isMuted,
                       onVolumeChanged: onVolumeChanged,
@@ -276,6 +283,7 @@ class PlayerTransport extends StatelessWidget {
 
                   SizedBox(width: gap),
 
+                  if (showAudioSubtitleControls) ...[
                   // Audio Menu Trigger
                   PlayerIconButton(
                     size: btnSize,
@@ -310,6 +318,7 @@ class PlayerTransport extends StatelessWidget {
                     activeColor: PlayerTheme.accent,
                     onPressed: onToggleSubSync,
                   ),
+                  ],
 
                   // Fullscreen Button (Desktop and television)
                   //
@@ -317,7 +326,7 @@ class PlayerTransport extends StatelessWidget {
                   // window chrome here: it drives the immersive system UI mode,
                   // and without it a remote had no fullscreen control at all -
                   // the row ended at the subtitle-sync button.
-                  if (isDesktop || isTelevision) ...[
+                  if (showFullscreenControl && (isDesktop || isTelevision)) ...[
                     SizedBox(width: gap),
                     PlayerIconButton(
                       size: btnSize,

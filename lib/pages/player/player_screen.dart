@@ -115,7 +115,9 @@ class PlayerScreen extends StatefulWidget {
 class _TvOSPlayerScreenState extends State<PlayerScreen> {
   @override
   Widget build(BuildContext context) => TvOSNativePlayer(
-    title: widget.title,
+    title: widget.detail?.name ?? widget.title,
+    subtitle: widget.detail?.year,
+    sourceLabel: widget.source.providerLabel,
     url: widget.source.isMagnet ? null : widget.source.url,
     initialPosition: widget.initialPosition,
   );
