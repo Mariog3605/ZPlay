@@ -60,6 +60,7 @@ import '../../widgets/player/player_skip_button.dart';
 import '../../widgets/player/player_episodes_panel.dart';
 import '../../widgets/player/player_sources_panel.dart';
 import 'watch_screen.dart';
+import 'tvos_native_player.dart';
 import '../../widgets/player/player_volume_control.dart';
 import '../../widgets/player/sub_sync_bar.dart';
 import '../../widgets/player/text_sync_overlay.dart';
@@ -106,7 +107,18 @@ class PlayerScreen extends StatefulWidget {
   });
 
   @override
-  State<PlayerScreen> createState() => _PlayerScreenState();
+  State<PlayerScreen> createState() => Platform.operatingSystem == 'tvos'
+      ? _TvOSPlayerScreenState()
+      : _PlayerScreenState();
+}
+
+class _TvOSPlayerScreenState extends State<PlayerScreen> {
+  @override
+  Widget build(BuildContext context) => TvOSNativePlayer(
+    title: widget.title,
+    url: widget.source.isMagnet ? null : widget.source.url,
+    initialPosition: widget.initialPosition,
+  );
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
@@ -36,6 +37,13 @@ class AppImageCache {
       cacheKey,
       maxNrOfCacheObjects: maxCachedObjects,
       stalePeriod: stalePeriod,
+      // tvOS's app sandbox permits temporary/cache files. Avoid the
+      // mobile-only SQLite database plugin for artwork metadata.
+      repo: !kIsWeb && Platform.operatingSystem == 'tvos'
+          ? JsonCacheInfoRepository(
+              path: '${Directory.systemTemp.path}/zplay-images-tvos.json',
+            )
+          : null,
     ),
   );
 

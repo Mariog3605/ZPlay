@@ -38,7 +38,7 @@ jobs:
           touch .env
       - name: Resolve supported platform plugins
         run: |
-          flutter-tvos pub add shared_preferences_tvos path_provider_tvos flutter_secure_storage_tvos url_launcher_tvos
+          flutter-tvos pub add shared_preferences_tvos path_provider_tvos flutter_secure_storage_tvos url_launcher_tvos video_player_tvos
           flutter-tvos pub get
       - name: Compile actual ZPlay source for Apple TV
         run: flutter-tvos build tvos --release --no-codesign --no-tree-shake-icons --dart-define-from-file=.env

@@ -34,6 +34,7 @@ import 'updates_settings_page.dart';
 import 'diagnostics_page.dart';
 import 'language_settings_page.dart';
 import 'about_settings_page.dart';
+import '../player/tvos_native_player.dart';
 import '../../services/player/player_settings.dart';
 import '../../services/p2p/p2p_settings_service.dart';
 import '../../services/scraper/builtin_providers_settings_service.dart';
@@ -864,6 +865,18 @@ class _SettingsPageState extends State<SettingsPage> {
                         'PLAYBACK',
                         first: true,
                         rows: [
+                          if (Platform.operatingSystem == 'tvos')
+                            SettingsNavRow(
+                              icon: Icons.play_circle_outline,
+                              iconColor: tokens.accent,
+                              title: 'Apple TV playback test',
+                              subtitle: 'Play Apple’s public HLS demonstration with AVPlayer',
+                              valueText: 'Test',
+                              onTap: () => _navigateTo(const TvOSNativePlayer(
+                                title: 'Apple HLS demonstration',
+                                url: 'https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8',
+                              )),
+                            ),
                           // Video & Anime4K Upscaling
                           ValueListenableBuilder<Anime4KPreset>(
                             valueListenable: PlayerSettings.anime4kPreset,
@@ -885,6 +898,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             },
                           ),
                           // Built-in P2P Torrent Source Toggle (ZPlay)
+                          if (Platform.operatingSystem != 'tvos')
                           ValueListenableBuilder<bool>(
                             valueListenable: P2pSettingsService.isP2pEnabled,
                             builder: (context, isP2p, _) {

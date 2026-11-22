@@ -333,7 +333,31 @@ class _ZPlayAppState extends State<ZPlayApp> with WidgetsBindingObserver {
               // `MediaQuery` and the render viewport agree, so a page sized from
               // `MediaQuery` fits the screen it is drawn into.
               builder: (context, child) {
-                final app = child ?? const SizedBox.shrink();
+                Widget app = child ?? const SizedBox.shrink();
+                if (Platform.operatingSystem == 'tvos') {
+                  // tvOS reports a larger logical canvas than Android TV.
+                  // Scale the entire layout, not just font sizes: fixed-height
+                  // controls and focus targets grow together with text.
+                  final content = app;
+                  final media = MediaQuery.of(context);
+                  app = LayoutBuilder(builder: (context, constraints) {
+                    const scale = 1.4;
+                    final logicalSize = Size(
+                      constraints.maxWidth / scale,
+                      constraints.maxHeight / scale,
+                    );
+                    return FittedBox(
+                      fit: BoxFit.fill,
+                      child: SizedBox.fromSize(
+                        size: logicalSize,
+                        child: MediaQuery(
+                          data: media.copyWith(size: logicalSize),
+                          child: content,
+                        ),
+                      ),
+                    );
+                  });
+                }
                 if (!kDebugMode) return app;
                 return Stack(children: [app, const PerfHud()]);
               },
