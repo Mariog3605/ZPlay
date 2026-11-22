@@ -33,18 +33,21 @@ class AppImageCache {
   static const Duration stalePeriod = Duration(days: 30);
 
   static final CacheManager manager = CacheManager(
-    Config(
-      cacheKey,
-      maxNrOfCacheObjects: maxCachedObjects,
-      stalePeriod: stalePeriod,
-      // tvOS's app sandbox permits temporary/cache files. Avoid the
-      // mobile-only SQLite database plugin for artwork metadata.
-      repo: !kIsWeb && Platform.operatingSystem == 'tvos'
-          ? JsonCacheInfoRepository(
+    !kIsWeb && Platform.operatingSystem == 'tvos'
+        ? Config(
+            cacheKey,
+            maxNrOfCacheObjects: maxCachedObjects,
+            stalePeriod: stalePeriod,
+            // tvOS stores artwork metadata in a writable temporary folder.
+            repo: JsonCacheInfoRepository(
               path: '${Directory.systemTemp.path}/zplay-images-tvos.json',
-            )
-          : null,
-    ),
+            ),
+          )
+        : Config(
+            cacheKey,
+            maxNrOfCacheObjects: maxCachedObjects,
+            stalePeriod: stalePeriod,
+          ),
   );
 
   /// Empties the artwork disk cache. Throws if the store cannot be cleared;
