@@ -1,0 +1,31 @@
+name: Independent native tvOS player experiment
+on:
+  push:
+    branches: [playtorrio-tv-experiment]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build unsigned Apple TV executable
+        run: |
+          set -euo pipefail
+          if ! xcrun --sdk appletvos --show-sdk-path; then xcodebuild -downloadPlatform tvOS; fi
+          app=Payload/TVPlayerExperiment.app
+          mkdir -p "$app"
+          cp tool/playtorrio-tv-experiment/Info.plist "$app/"
+          xcrun --sdk appletvos swiftc -parse-as-library -O -target arm64-apple-tvos15.0 -sdk "$(xcrun --sdk appletvos --show-sdk-path)" -framework SwiftUI -framework AVKit tool/playtorrio-tv-experiment/PlayerApp.swift -o "$app/TVPlayerExperiment"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleSupportedPlatforms:0' "$app/Info.plist" | grep -Fx AppleTVOS
+          xcrun lipo -verify_arch arm64 "$app/TVPlayerExperiment"
+          xcrun vtool -show-build "$app/TVPlayerExperiment"
+          zip -qry TVPlayerExperiment-tvOS-beta1.ipa Payload
+          unzip -tq TVPlayerExperiment-tvOS-beta1.ipa
+          shasum -a 256 TVPlayerExperiment-tvOS-beta1.ipa > TVPlayerExperiment-tvOS-beta1.ipa.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TVPlayerExperiment-tvOS-beta1-unsigned
+          path: TVPlayerExperiment-tvOS-beta1.ipa*
+          if-no-files-found: error
