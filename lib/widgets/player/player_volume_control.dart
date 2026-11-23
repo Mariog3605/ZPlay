@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,6 +32,7 @@ class PlayerVolumeControl extends StatefulWidget {
 }
 
 class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
+  bool _remoteEditing = false;
   bool _isHovered = false;
   static const double _trackWidth = 96.0;
 
@@ -191,6 +193,14 @@ class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
                   // focus system: they are how a remote walks the transport row,
                   // and this track is in the middle of it.
                   if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                  if (Platform.operatingSystem == 'tvos') {
+                    if (event.logicalKey == LogicalKeyboardKey.select ||
+                        event.logicalKey == LogicalKeyboardKey.enter) {
+                      setState(() => _remoteEditing = !_remoteEditing);
+                      return KeyEventResult.handled;
+                    }
+                    if (!_remoteEditing) return KeyEventResult.ignored;
+                  }
                   if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
                     _stepBy(_arrowStep);
                     return KeyEventResult.handled;

@@ -53,6 +53,9 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
   final _playFocus = FocusNode(debugLabel: 'tvOS play/pause');
   final _position = ValueNotifier<Duration>(Duration.zero);
   final _buffered = ValueNotifier<Duration?>(null);
+  static const _tracks = MethodChannel('zplay/tvos_tracks');
+  bool _subtitlesActive = false;
+  String _status = 'Preparing media…';
 
   @override
   void initState() {
@@ -70,6 +73,7 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
           return;
         }
         _activeTorrent = magnet;
+        setState(() => _status = 'Gathering metadata & peers…');
         final stream = await TorrentStreamService().streamTorrent(
           magnet, season: widget.season, episode: widget.episode,
           fileIdx: widget.torrentFileIndex,
@@ -88,9 +92,10 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
         return;
       }
       final controller = VideoPlayerController.networkUrl(uri);
+      if (mounted) setState(() => _status = 'Buffering video…');
       _controller = controller;
       controller.addListener(_onPlayerChanged);
-      await controller.initialize().timeout(const Duration(seconds: 30));
+      await controller.initialize().timeout(const Duration(seconds: 90));
       if (!mounted) return;
       final start = widget.initialPosition;
       if (start != null && start > Duration.zero &&
@@ -103,10 +108,11 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
         setState(() => _ready = true);
         _showControls();
       }
-    } catch (_) {
-      if (mounted) setState(() => _error =
-          'AVPlayer could not open this media. The format, connection, '
-          'or source may not be supported.');
+    } catch (error) {
+      if (mounted) setState(() => _error = error is TimeoutException
+          ? 'The video did not become ready within 90 seconds. Return to Sources to retry.'
+          : 'AVPlayer could not decode or load this stream. Its container, audio/video format, '
+            'or connection may be incompatible. Return to Sources to choose another file.');
     }
   }
 
@@ -117,7 +123,8 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
     _position.value = value.position;
     _buffered.value = value.buffered.isEmpty ? null : value.buffered.last.end;
     if (value.hasError) {
-      _error = 'Playback failed. Return to the previous screen to try again.';
+      _error = 'AVPlayer reported a playback error. The stream may have stalled '
+          'or use an unsupported container or codec. Return to Sources to retry.';
       _controlsVisible = true;
     }
     setState(() {});
@@ -215,7 +222,74 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
       }
     }
     _scheduleHide();
+    // Route directional focus across both HUD groups explicitly. Their wide
+    // gap and the timeline otherwise leave tvOS traversal inside the left row.
+    final direction = {
+      LogicalKeyboardKey.arrowLeft: TraversalDirection.left,
+      LogicalKeyboardKey.arrowRight: TraversalDirection.right,
+      LogicalKeyboardKey.arrowUp: TraversalDirection.up,
+      LogicalKeyboardKey.arrowDown: TraversalDirection.down,
+    }[key];
+    if (direction != null && _controlsVisible && !_menuOpen && _moveHudFocus(direction)) {
+      return KeyEventResult.handled;
+    }
     return KeyEventResult.ignored;
+  }
+
+  bool _moveHudFocus(TraversalDirection direction) {
+    final current = FocusManager.instance.primaryFocus;
+    if (current == null || current.context == null) return false;
+    final origin = current.rect.center;
+    final horizontal = direction == TraversalDirection.left || direction == TraversalDirection.right;
+    final positive = direction == TraversalDirection.right || direction == TraversalDirection.down;
+    final candidates = _pageFocus.descendants.where((n) =>
+        n != current && n.canRequestFocus && !n.skipTraversal && n.context != null).where((n) {
+      final delta = n.rect.center - origin;
+      final primary = horizontal ? delta.dx : delta.dy;
+      return positive ? primary > 4 : primary < -4;
+    }).toList();
+    if (candidates.isEmpty) return false;
+    double score(FocusNode n) {
+      final delta = n.rect.center - origin;
+      final primary = (horizontal ? delta.dx : delta.dy).abs();
+      final cross = (horizontal ? delta.dy : delta.dx).abs();
+      return primary + cross * (horizontal ? 8 : 0.3);
+    }
+    candidates.sort((a, b) => score(a).compareTo(score(b)));
+    candidates.first.requestFocus();
+    return true;
+  }
+
+  Future<void> _chooseTrack(String kind) async {
+    _menuOpen = true;
+    _hideTimer?.cancel();
+    try {
+      final result = await _tracks.invokeListMethod<dynamic>('list', {'kind': kind});
+      if (!mounted) return;
+      final tracks = (result ?? []).map((v) => Map<String, dynamic>.from(v as Map)).toList();
+      final selected = await showDialog<int>(context: context, builder: (context) => SimpleDialog(
+        title: Text(kind == 'audio' ? 'Audio tracks' : 'Subtitles'),
+        children: [
+          if (kind == 'subtitles') SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, -1), child: const Text('Off')),
+          for (final track in tracks) SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, track['index'] as int),
+            child: Text('${track['name']}${track['selected'] == true ? ' ✓' : ''}')),
+          if (tracks.isEmpty) const Padding(padding: EdgeInsets.all(24),
+            child: Text('No selectable embedded tracks in this stream.')),
+        ],
+      ));
+      if (selected != null) {
+        await _tracks.invokeMethod<void>('select', {'kind': kind, 'index': selected});
+        if (mounted && kind == 'subtitles') setState(() => _subtitlesActive = selected >= 0);
+      }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Track selection is unavailable for this stream.')));
+    } finally {
+      _menuOpen = false;
+      if (mounted) _showControls();
+    }
   }
 
   Future<void> _setVolume(double value) async {
@@ -308,7 +382,11 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
                             style: const TextStyle(color: Colors.white, fontSize: 24)),
                       )
                     : !active || c == null
-                        ? const CircularProgressIndicator()
+                        ? Column(mainAxisSize: MainAxisSize.min, children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 20),
+                            Text(_status, style: const TextStyle(color: Colors.white, fontSize: 22)),
+                          ])
                         : ClipRect(
                             child: SizedBox.expand(
                               child: FittedBox(
@@ -346,11 +424,12 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
                   volume: c.value.volume,
                   isMuted: c.value.volume == 0,
                   playbackRate: c.value.playbackSpeed,
-                  isSubtitlesActive: false,
+                  isSubtitlesActive: _subtitlesActive,
                   isSubSyncActive: false,
                   isAudioActive: false,
                   isFullscreen: true,
-                  showAudioSubtitleControls: false,
+                  showAudioSubtitleControls: true,
+                  showSubtitleSyncControl: false,
                   showFullscreenControl: false,
                   allowVolumeBoost: false,
                   entryFocusNode: _playFocus,
@@ -362,9 +441,9 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
                   onToggleMute: _toggleMute,
                   onToggleAspectMenu: _chooseAspect,
                   onToggleSpeedMenu: _chooseSpeed,
-                  onToggleAudioMenu: () {},
-                  onToggleSubtitleMenu: () {},
-                  onToggleSubSync: () {},
+                  onToggleAudioMenu: () => _chooseTrack('audio'),
+                  onToggleSubtitleMenu: () => _chooseTrack('subtitles'),
+                  onToggleSubSync: () => _chooseTrack('subtitles'),
                   onToggleFullscreen: () {},
                   onScrubbingChanged: (value) {
                     _scrubbing = value;

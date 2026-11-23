@@ -34,6 +34,7 @@ class PlayerTransport extends StatelessWidget {
   final bool hasNextEpisode;
   final bool showAudioSubtitleControls;
   final bool showFullscreenControl;
+  final bool showSubtitleSyncControl;
   final bool allowVolumeBoost;
 
   /// The node the player hands focus to when the HUD opens, attached to the
@@ -77,6 +78,7 @@ class PlayerTransport extends StatelessWidget {
     this.hasNextEpisode = false,
     this.showAudioSubtitleControls = true,
     this.showFullscreenControl = true,
+    this.showSubtitleSyncControl = true,
     this.allowVolumeBoost = true,
     this.entryFocusNode,
     required this.onPlayPause,
@@ -110,9 +112,10 @@ class PlayerTransport extends StatelessWidget {
     // Reading it from the shell's classifier rather than the platform keeps the
     // decision in the one place that answers "what is this running on".
     final isTelevision = FormFactorService.of(context) == FormFactor.television;
-    final btnSize = isCompact ? 36.0 : 42.0;
-    final btnIconSize = isCompact ? 20.0 : 22.0;
-    final playBtnSize = isCompact ? 46.0 : 54.0;
+    final appleTv = !kIsWeb && Platform.operatingSystem == 'tvos';
+    final btnSize = appleTv ? 50.0 : (isCompact ? 36.0 : 42.0);
+    final btnIconSize = appleTv ? 28.0 : (isCompact ? 20.0 : 22.0);
+    final playBtnSize = appleTv ? 64.0 : (isCompact ? 46.0 : 54.0);
     final gap = isCompact ? 2.0 : 4.0;
 
     return Container(
@@ -309,7 +312,7 @@ class PlayerTransport extends StatelessWidget {
                   SizedBox(width: gap),
 
                   // Subtitle Sync Trigger
-                  PlayerIconButton(
+                  if (showSubtitleSyncControl) PlayerIconButton(
                     size: btnSize,
                     iconSize: btnIconSize,
                     icon: const Icon(Icons.tune_rounded),

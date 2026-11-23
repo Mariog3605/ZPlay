@@ -50,6 +50,9 @@ jobs:
         run: bash tool/tvos/prepare-torrserver.sh
       - name: Resolve supported platform plugins
         run: |
+          git clone https://github.com/fluttertv/plugins.git "$RUNNER_TEMP/fluttertv-plugins"
+          git -C "$RUNNER_TEMP/fluttertv-plugins" checkout 80fbe42482a54e13f1e2851b8dc93e5eb916cea8
+          python3 tool/tvos/prepare-player.py "$RUNNER_TEMP/fluttertv-plugins/packages/video_player_tvos" tool/tvos/player-tracks.swift
           flutter-tvos pub add shared_preferences_tvos path_provider_tvos flutter_secure_storage_tvos url_launcher_tvos video_player_tvos
           flutter-tvos pub get
       - name: Compile actual ZPlay source for Apple TV
