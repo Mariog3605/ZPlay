@@ -19,7 +19,7 @@ jobs:
           cp tool/playtorrio-tv-experiment/Info.plist "$app/"
           xcrun --sdk appletvos swiftc -parse-as-library -O -target arm64-apple-tvos15.0 -sdk "$(xcrun --sdk appletvos --show-sdk-path)" -framework SwiftUI -framework AVKit tool/playtorrio-tv-experiment/PlayerApp.swift -o "$app/TVPlayerExperiment"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleSupportedPlatforms:0' "$app/Info.plist" | grep -Fx AppleTVOS
-          xcrun lipo -verify_arch arm64 "$app/TVPlayerExperiment"
+          xcrun lipo "$app/TVPlayerExperiment" -verify_arch arm64
           xcrun vtool -show-build "$app/TVPlayerExperiment"
           zip -qry TVPlayerExperiment-tvOS-beta1.ipa Payload
           unzip -tq TVPlayerExperiment-tvOS-beta1.ipa
