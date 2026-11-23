@@ -6,7 +6,7 @@ import 'package:video_player/video_player.dart';
 import '../../services/stream/torrent_stream_service.dart';
 import '../../services/p2p/p2p_settings_service.dart';
 import '../../widgets/player/player_top_bar.dart';
-import '../../widgets/player/player_transport.dart';
+import '../../widgets/player/player_seek_bar.dart';
 
 /// Experimental AVFoundation playback for authorized HTTPS and local P2P media.
 /// Unsupported formats and missing native plugins show a recoverable error.
@@ -416,43 +416,53 @@ class _TvOSNativePlayerState extends State<TvOSNativePlayer> {
               ),
             if (_controlsVisible && active && c != null)
               Positioned(bottom: 0, left: 0, right: 0,
-                child: SafeArea(top: false, child: PlayerTransport(
-                  isPlaying: c.value.isPlaying,
-                  positionListenable: _position,
-                  duration: c.value.duration,
-                  bufferedListenable: _buffered,
-                  volume: c.value.volume,
-                  isMuted: c.value.volume == 0,
-                  playbackRate: c.value.playbackSpeed,
-                  isSubtitlesActive: _subtitlesActive,
-                  isSubSyncActive: false,
-                  isAudioActive: false,
-                  isFullscreen: true,
-                  showAudioSubtitleControls: true,
-                  showSubtitleSyncControl: false,
-                  showFullscreenControl: false,
-                  allowVolumeBoost: false,
-                  entryFocusNode: _playFocus,
-                  onPlayPause: _toggle,
-                  onSeek: _seekTo,
-                  onSeekBack10: () => _seek(-10),
-                  onSeekForward10: () => _seek(10),
-                  onVolumeChanged: _setVolume,
-                  onToggleMute: _toggleMute,
-                  onToggleAspectMenu: _chooseAspect,
-                  onToggleSpeedMenu: _chooseSpeed,
-                  onToggleAudioMenu: () => _chooseTrack('audio'),
-                  onToggleSubtitleMenu: () => _chooseTrack('subtitles'),
-                  onToggleSubSync: () => _chooseTrack('subtitles'),
-                  onToggleFullscreen: () {},
-                  onScrubbingChanged: (value) {
-                    _scrubbing = value;
-                    _scheduleHide();
-                  },
+                child: SafeArea(top: false, child: Container(
+                  padding: const EdgeInsets.fromLTRB(32, 36, 32, 24),
+                  decoration: const BoxDecoration(gradient: LinearGradient(
+                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black87, Colors.black],
+                  )),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    PlayerSeekBar(positionListenable: _position,
+                      duration: c.value.duration, bufferedListenable: _buffered,
+                      onSeek: _seekTo, onScrubbingChanged: (value) {
+                        _scrubbing = value; _scheduleHide();
+                      }),
+                    const SizedBox(height: 16),
+                    Wrap(alignment: WrapAlignment.center, spacing: 12, runSpacing: 10,
+                      children: [
+                        _tvButton(Icons.replay_10, '−10 s', () => _seek(-10)),
+                        _tvButton(c.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                          c.value.isPlaying ? 'Pause' : 'Play', _toggle, focus: _playFocus),
+                        _tvButton(Icons.forward_10, '+10 s', () => _seek(10)),
+                        _tvButton(c.value.volume == 0 ? Icons.volume_off : Icons.volume_up,
+                          c.value.volume == 0 ? 'Unmute' : 'Mute', _toggleMute),
+                        _tvButton(Icons.aspect_ratio, 'Picture', _chooseAspect),
+                        _tvButton(Icons.speed, 'Speed', _chooseSpeed),
+                        _tvButton(Icons.audiotrack, 'Audio', () => _chooseTrack('audio')),
+                        _tvButton(Icons.subtitles, _subtitlesActive ? 'CC on' : 'Subtitles',
+                          () => _chooseTrack('subtitles')),
+                      ]),
+                  ]),
                 )),
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _tvButton(IconData icon, String label, VoidCallback action, {FocusNode? focus}) {
+    return FilledButton.icon(
+      focusNode: focus, onPressed: action,
+      icon: Icon(icon, size: 24), label: Text(label),
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(96, 54)),
+        textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 18)),
+        backgroundColor: WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.focused) ? Colors.white : Colors.white24),
+        foregroundColor: WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.focused) ? Colors.black : Colors.white),
       ),
     );
   }
