@@ -37,6 +37,10 @@ jobs:
             cp -R "$RUNNER_TEMP/zplay_scaffold/tvos" .
           fi
           touch .env
+      - name: Apply ZPlay Apple TV launcher icon
+        run: |
+          swift tool/tvos/app-icon.swift tvos/Runner/Assets.xcassets/AppIcon.brandassets
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName ZPlay' tvos/Runner/Info.plist
       - name: Install Go toolchain for TorrServer
         uses: actions/setup-go@v5
         with:
