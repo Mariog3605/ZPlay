@@ -1,7 +1,7 @@
-name: Independent native tvOS player experiment
+name: PlayTorrio TV Community alpha
 on:
   push:
-    branches: [playtorrio-tv-experiment]
+    branches: [playtorrio-tv-community]
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,15 +17,16 @@ jobs:
           app=Payload/TVPlayerExperiment.app
           mkdir -p "$app"
           cp tool/playtorrio-tv-experiment/Info.plist "$app/"
-          xcrun --sdk appletvos swiftc -parse-as-library -O -target arm64-apple-tvos15.0 -sdk "$(xcrun --sdk appletvos --show-sdk-path)" -framework SwiftUI -framework AVKit tool/playtorrio-tv-experiment/PlayerApp.swift -o "$app/TVPlayerExperiment"
+          cp tool/playtorrio-tv-experiment/LICENSE "$app/"
+          xcrun --sdk appletvos swiftc -parse-as-library -O -target arm64-apple-tvos15.0 -sdk "$(xcrun --sdk appletvos --show-sdk-path)" -framework SwiftUI -framework AVKit tool/playtorrio-tv-experiment/CommunityApp.swift -o "$app/TVPlayerExperiment"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleSupportedPlatforms:0' "$app/Info.plist" | grep -Fx AppleTVOS
           xcrun lipo "$app/TVPlayerExperiment" -verify_arch arm64
           xcrun vtool -show-build "$app/TVPlayerExperiment"
-          zip -qry TVPlayerExperiment-tvOS-beta1.ipa Payload
-          unzip -tq TVPlayerExperiment-tvOS-beta1.ipa
-          shasum -a 256 TVPlayerExperiment-tvOS-beta1.ipa > TVPlayerExperiment-tvOS-beta1.ipa.sha256
+          zip -qry PlayTorrio-TV-Community-alpha1.ipa Payload
+          unzip -tq PlayTorrio-TV-Community-alpha1.ipa
+          shasum -a 256 PlayTorrio-TV-Community-alpha1.ipa > PlayTorrio-TV-Community-alpha1.ipa.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: TVPlayerExperiment-tvOS-beta1-unsigned
-          path: TVPlayerExperiment-tvOS-beta1.ipa*
+          name: PlayTorrio-TV-Community-alpha1-unsigned
+          path: PlayTorrio-TV-Community-alpha1.ipa*
           if-no-files-found: error

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleName</key><string>TV Player Experiment</string>
-<key>CFBundleDisplayName</key><string>TV Player Experiment</string>
-<key>CFBundleIdentifier</key><string>com.mariog3605.tvplayerexperiment</string>
+<key>CFBundleName</key><string>PlayTorrio TV Community</string>
+<key>CFBundleDisplayName</key><string>PlayTorrio Community</string>
+<key>CFBundleIdentifier</key><string>com.mariog3605.playtorriocommunity</string>
 <key>CFBundleExecutable</key><string>TVPlayerExperiment</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
